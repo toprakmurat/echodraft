@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Code Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0;
+            color: #999;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .quick-btn {
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #495057;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .quick-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .features {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e1e1e1;
+        }
+
+        .features h3 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features li {
+            padding: 0.5rem 0;
+            color: #666;
+        }
+
+        .features li::before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Collaborative Code Editor</h1>
+        
+        <form id="joinForm">
+            <div class="form-group">
+                <label for="username">Your Name:</label>
+                <input type="text" id="username" name="username" placeholder="Enter your name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomId">Room ID:</label>
+                <input type="text" id="roomId" name="roomId" placeholder="Enter room ID or leave blank for new room">
+            </div>
+            
+            <div class="form-group">
+                <label for="language">Programming Language:</label>
+                <select id="language" name="language">
+                    {% for lang_key, lang_info in languages.items() %}
+                        <option value="{{ lang_key }}" {% if lang_key == 'javascript' %}selected{% endif %}>
+                            {{ lang_key.title() }} ({{ lang_info.extension }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="btn">Join/Create Room</button>
+        </form>
+        
+        <div class="divider">or</div>
+        
+        <div class="quick-actions">
+            <a href="#" class="quick-btn" onclick="quickJoin('python')">
+                🐍 Python Room
+            </a>
+            <a href="#" class="quick-btn" onclick="quickJoin('javascript')">
+                🟨 JavaScript Room
+            </a>
+            <a href="#" class="quick-btn" onclick="quickJoin('html')">
+                🌐 HTML Room
+            </a>
+            <a href="#" class="quick-btn" onclick="quickJoin('cpp')">
+                ⚡ C++ Room
+            </a>
+        </div>
+        
+        <div class="features">
+            <h3>Features</h3>
+            <ul>
+                <li>Real-time collaborative editing</li>
+                <li>20+ programming languages supported</li>
+                <li>Syntax highlighting</li>
+                <li>Live cursor tracking</li>
+                <li>Instant synchronization</li>
+                <li>Room-based collaboration</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Generate random room ID
+        function generateRoomId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+        // Quick join function
+        function quickJoin(language) {
+            const roomId = generateRoomId();
+            const username = prompt("Enter your name:") || "Anonymous";
+            window.location.href = `/editor/${roomId}?username=${encodeURIComponent(username)}&language=${language}`;
+        }
+
+        // Handle form submission
+        document.getElementById('joinForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const roomId = document.getElementById('roomId').value || generateRoomId();
+            const language = document.getElementById('language').value;
+            
+            // Redirect to editor with parameters
+            window.location.href = `/editor/${roomId}?username=${encodeURIComponent(username)}&language=${language}`;
+        });
+
+        // Auto-generate room ID if empty
+        document.getElementById('roomId').addEventListener('focus', function() {
+            if (this.value === '') {
+                this.value = generateRoomId();
+            }
+        });
+    </script>
+</body>
+</html>
