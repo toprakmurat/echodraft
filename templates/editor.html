@@ -301,7 +301,7 @@
         
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const username = urlParams.get('username') || 'Anonymous';
+        const username = urlParams.get('username') || `Guest-${crypto.randomUUID().slice(0, 6)}`;
         let currentLanguage = urlParams.get('language') || 'javascript';
         const initialLanguage = urlParams.get('language') || 'javascript';
         
@@ -422,7 +422,7 @@
 
         socket.on('cursor_change', function(data) {
             // Handle other users' cursor positions
-            displayCursor(data.user_id, data.cursor);
+            displayCursor(data.user_id, data.username, data.cursor);
         });
 
         // UI Functions
@@ -462,7 +462,7 @@
 
         const cursorTimeouts = {};
 
-        function displayCursor(userId, cursor) {
+        function displayCursor(userId, usrname, cursor) {
             const existingCursor = document.getElementById(`cursor-${userId}`);
             if (existingCursor) existingCursor.remove();
 
@@ -472,7 +472,7 @@
 
             const cursorLabel = document.createElement('div');
             cursorLabel.className = 'cursor-label';
-            cursorLabel.textContent = `User ${userId.substring(0, 8)}`;
+            cursorLabel.textContent = `${usrname}`;
             cursorWidget.appendChild(cursorLabel);
 
             const coords = editor.charCoords({ line: cursor.line, ch: cursor.ch }, 'local');

@@ -104,6 +104,7 @@ def login():
         if user and user.check_password(password):
             session['user_id'] = user.id
             session['username'] = user.username # Store username for display
+            session['is_guest'] = False;
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('home'))
         else:
@@ -119,6 +120,7 @@ def logout():
     """
     session.pop('user_id', None)
     session.pop('username', None)
+    session.pop('is_guest', None)
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
@@ -180,7 +182,10 @@ def signup():
 @app.route('/editor/<room_id>')
 def editor(room_id):
     room = get_or_create_room(room_id)
-    return render_template('editor.html', room_id=room_id, languages=SUPPORTED_LANGUAGES, room=room)
+    return render_template('editor.html', 
+                            languages=SUPPORTED_LANGUAGES, 
+                            room_id=room_id, 
+                            room=room)
 
 @app.route('/api/rooms/<room_id>')
 def get_room_info(room_id):
@@ -241,9 +246,9 @@ def on_disconnect():
     
     try:
         # End user session in database
-        session = end_user_session(request.sid)
+        user_session = end_user_session(request.sid)
         
-        if session and request.sid in active_connections:
+        if user_session and request.sid in active_connections:
             room_id = active_connections[request.sid]['room_id']
             user_id = active_connections[request.sid]['user_id']
             
@@ -263,6 +268,16 @@ def on_disconnect():
             # Update room statistics
             update_room_stats(room_id)
             
+            # Delete if the user is guest
+            user = User.query.get(user_id)
+
+            if not user:
+                return f"User with ID {user_id} not found.", 404
+
+            if user.is_guest:
+                db.session.delete(user)
+                db.session.commit()
+
     except Exception as e:
         logger.error(f"Error handling disconnect: {str(e)}")
 
@@ -277,7 +292,7 @@ def on_join_room(data):
         
         # Get or create user
         user = get_or_create_user(username, request.sid)
-        
+
         # Create user session
         session = create_user_session(user.id, room_id, request.sid)
         
@@ -347,6 +362,16 @@ def on_leave_room(data):
                 'active_users': len(active_users),
                 'users': [user_data for user_data in active_users]
             }, room=room_id)
+
+            # Delete if the user is guest
+            user = User.query.get(user_id)
+
+            if not user:
+                return f"User with ID {user_id} not found.", 404
+
+            if user.is_guest:
+                db.session.delete(user)
+                db.session.commit()
             
     except Exception as e:
         logger.error(f"Error leaving room: {str(e)}")
@@ -395,7 +420,7 @@ def on_cursor_change(data):
             return
         
         user_id = active_connections[request.sid]['user_id']
-        
+        username = User.query.get(user_id).username
         # Update cursor position in session
         session = UserSession.query.filter_by(
             socket_id=request.sid,
@@ -409,6 +434,7 @@ def on_cursor_change(data):
             # Broadcast cursor position to all other users in the room
             emit('cursor_change', {
                 'user_id': user_id,
+                'username': username,
                 'cursor': cursor_data
             }, room=room_id, include_self=False)
             

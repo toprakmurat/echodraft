@@ -205,16 +205,20 @@ def get_or_create_room(room_id, name=None):
         db.session.commit()
     return room
 
-def get_or_create_user(username, socket_id, email=None):
+def  get_or_create_user(username, socket_id):
     """Get existing user or create new guest user"""
-    # For guest users, create a new user each time
-    user = User(
-        username=username,
-        email=email,
-        is_guest=True
-    )
-    db.session.add(user)
-    db.session.commit()
+
+    user = User.query.filter(User.username == username).first()
+    if not user:
+        # For guest users, create a new guest user each time
+        # Guest users do not have
+        user = User(
+            username=username,
+            is_guest=True
+        )
+        db.session.add(user)
+        db.session.commit()
+
     return user
 
 def get_or_create_document(room_id, initial_content='', language='javascript'):
