@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EchoDraft - Collaborative Live Editing</title>
+    <title>echodraft - Collaborative Live Editing</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #007bff; /* Blue */
-            --secondary-color: #6c757d; /* Gray */
-            --accent-color: #28a745; /* Green */
-            --text-color: #343a40; /* Dark Gray */
-            --light-bg: #f8f9fa; /* Light Gray Background */
+            --primary-color: #0D47A1; /* Deep, Strong Blue */
+            --secondary-color: #37474F; /* Dark Blue Grey */
+            --accent-color: #FF6F00; /* Bold Orange */
+            --text-color: #212121; /* Charcoal Black */
+            --light-bg: #ECEFF1; /* Light Grey Background */
             --white: #ffffff;
             --shadow: rgba(0, 0, 0, 0.1);
             --border-radius: 8px;
@@ -97,13 +97,13 @@
         }
 
         .cta-button:hover {
-            background-color: #0056b3; /* Darker blue */
+            background-color: #1565C0; /* Slightly Lighter Blue */
             transform: translateY(-2px);
         }
 
         /* Hero Section */
         .hero {
-            background: linear-gradient(135deg, var(--primary-color), #4CAF50); /* Gradient from blue to green */
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); /* Gradient from Dark Grey to Deep Blue */
             color: var(--white);
             text-align: center;
             padding: 100px 20px;
@@ -128,12 +128,13 @@
 
         .hero .cta-button {
             background-color: var(--accent-color);
+            color: var(--white);
             padding: 15px 30px;
             font-size: 1.1em;
         }
 
         .hero .cta-button:hover {
-            background-color: #218838; /* Darker green */
+            background-color: #FF8F00; /* Lighter orange */
         }
 
         /* Features Section */
@@ -204,7 +205,7 @@
             background-color: var(--white);
             padding: 80px 0;
             text-align: center;
-            border-top: 1px solid #eee;
+            border-top: 1px solid #ddd;
         }
 
         .steps-grid {
@@ -231,18 +232,18 @@
         .step-item .step-number {
             font-size: 2.5em;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--white);
             position: absolute;
             top: -20px;
             left: -20px;
-            background-color: var(--white);
+            background-color: var(--secondary-color);
             border-radius: 50%;
             width: 60px;
             height: 60px;
             display: flex;
             justify-content: center;
             align-items: center;
-            border: 3px solid var(--primary-color);
+            border: 3px solid var(--white);
             box-shadow: 0 2px 5px var(--shadow);
         }
 
@@ -328,7 +329,7 @@
 
         /* Call to Action Section */
         .call-to-action {
-            background: linear-gradient(45deg, #007bff, #28a745); /* Blend of primary and accent */
+            background: linear-gradient(135deg, #FF8000, #FF7000); /* Blend of bold and lighter orange */
             color: var(--white);
             padding: 80px 20px;
             text-align: center;
@@ -348,11 +349,17 @@
             max-width: 700px;
             margin: 0 auto 40px auto;
         }
+        
+        .call-to-action .cta-button {
+            background-color: var(--white);
+            color: var(--accent-color);
+            font-weight: 700;
+        }
 
         /* Footer */
         footer {
-            background-color: var(--text-color);
-            color: var(--white);
+            background-color: var(--secondary-color);
+            color: var(--light-bg);
             padding: 40px 0;
             text-align: center;
             font-size: 0.9em;
@@ -375,7 +382,11 @@
         footer .footer-col h3 {
             font-size: 1.2em;
             margin-bottom: 15px;
-            color: var(--accent-color);
+            color: var(--white);
+        }
+        
+        footer .footer-col h3.echodraft-title {
+             color: var(--accent-color);
         }
 
         footer .footer-col ul {
@@ -394,7 +405,7 @@
         }
 
         footer .footer-col ul li a:hover {
-            color: var(--primary-color);
+            color: var(--accent-color);
         }
 
         footer .social-icons {
@@ -409,7 +420,7 @@
         }
 
         footer .social-icons a:hover {
-            color: var(--primary-color);
+            color: var(--accent-color);
         }
 
         .footer-bottom {
@@ -558,7 +569,7 @@
 <body>
     <header>
         <div class="container">
-            <a href="#" class="logo"><i class="fas fa-edit"></i>EchoDraft</a>
+            <a href="#" class="logo"><i class="fas fa-edit"></i>echodraft</a>
             <nav>
                 <ul>
                     <li><a href="#features">Features</a></li>
@@ -575,14 +586,14 @@
         <section class="hero">
             <div class="container">
                 <h1>Collaborative Live Editing, Reimagined.</h1>
-                <p>EchoDraft provides a seamless, real-time platform for teams to co-create documents, code, and ideas without missing a beat.</p>
+                <p>echodraft provides a seamless, real-time platform for teams to co-create documents, code, and ideas without missing a beat.</p>
                 <a href="/signup" class="cta-button">Start Editing Now - It's Free!</a>
             </div>
         </section>
 
         <section id="features" class="features">
             <div class="container">
-                <h2>Why Choose EchoDraft?</h2>
+                <h2>Why Choose echodraft?</h2>
                 <div class="feature-grid">
                     <div class="feature-item">
                         <i class="fas fa-users"></i>
@@ -612,7 +623,7 @@
                     <div class="feature-item">
                         <i class="fas fa-code"></i>
                         <h3>Code & Rich Text Support</h3>
-                        <p>From rich text documents to code files, EchoDraft handles various formats with syntax highlighting and formatting options.</p>
+                        <p>From rich text documents to code files, echodraft handles various formats with syntax highlighting and formatting options.</p>
                     </div>
                 </div>
             </div>
@@ -620,12 +631,12 @@
 
         <section id="how-it-works" class="how-it-works">
             <div class="container">
-                <h2>How EchoDraft Works</h2>
+                <h2>How echodraft Works</h2>
                 <div class="steps-grid">
                     <div class="step-item">
                         <span class="step-number">1</span>
                         <h3>Create a Document</h3>
-                        <p>Start a new document or import an existing one. EchoDraft provides a clean and intuitive editor.</p>
+                        <p>Start a new document or import an existing one. echodraft provides a clean and intuitive editor.</p>
                     </div>
                     <div class="step-item">
                         <span class="step-number">2</span>
@@ -647,7 +658,7 @@
                 <div class="testimonial-carousel">
                     <div class="testimonial-item">
                         <i class="fas fa-quote-right quote-icon"></i>
-                        <p>"EchoDraft has revolutionized how our remote team works. The real-time editing is incredibly fluid, and the version history is a lifesaver!"</p>
+                        <p>"echodraft has revolutionized how our remote team works. The real-time editing is incredibly fluid, and the version history is a lifesaver!"</p>
                         <div class="testimonial-author">
                             <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Jane Doe">
                             <div class="author-info">
@@ -658,7 +669,7 @@
                     </div>
                     <div class="testimonial-item">
                         <i class="fas fa-quote-right quote-icon"></i>
-                        <p>"As a developer, I love using EchoDraft for pair programming and code reviews. The syntax highlighting and live updates make it perfect."</p>
+                        <p>"As a developer, I love using echodraft for pair programming and code reviews. The syntax highlighting and live updates make it perfect."</p>
                         <div class="testimonial-author">
                             <img src="https://randomuser.me/api/portraits/men/44.jpg" alt="John Smith">
                             <div class="author-info">
@@ -669,7 +680,7 @@
                     </div>
                     <div class="testimonial-item">
                         <i class="fas fa-quote-right quote-icon"></i>
-                        <p>"The ease of use and powerful collaboration features of EchoDraft are unmatched. It's an essential tool for our content creation team."</p>
+                        <p>"The ease of use and powerful collaboration features of echodraft are unmatched. It's an essential tool for our content creation team."</p>
                         <div class="testimonial-author">
                             <img src="https://randomuser.me/api/portraits/women/79.jpg" alt="Emily White">
                             <div class="author-info">
@@ -680,7 +691,7 @@
                     </div>
                     <div class="testimonial-item">
                         <i class="fas fa-quote-right quote-icon"></i>
-                        <p>"Finally, a collaborative editor that just works! No lag, no glitches, just pure productivity. Highly recommend EchoDraft."</p>
+                        <p>"Finally, a collaborative editor that just works! No lag, no glitches, just pure productivity. Highly recommend echodraft."</p>
                         <div class="testimonial-author">
                             <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Michael Brown">
                             <div class="author-info">
@@ -697,7 +708,7 @@
             <div class="container">
                 <h2>Ready to Elevate Your Collaboration?</h2>
                 <p>Join thousands of teams who are already experiencing the future of live editing. Sign up for free today!</p>
-                <a href="/signup" class="cta-button">Get Started with EchoDraft</a>
+                <a href="/signup" class="cta-button">Get Started with echodraft</a>
             </div>
         </section>
     </main>
@@ -705,7 +716,7 @@
     <footer id="contact">
         <div class="container">
             <div class="footer-col">
-                <h3>EchoDraft</h3>
+                <h3 class="echodraft-title">echodraft</h3>
                 <p>Collaborative Live Editing, Reimagined.</p>
                 <div class="social-icons">
                     <a href="#"><i class="fab fa-facebook-f"></i></a>
@@ -740,7 +751,8 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>EchoDraft. All rights reserved.</p>
+            <p>echodraft. All rights reserved.</p>
+            <p>by Murat Toprak</p>
         </div>
     </footer>
 
