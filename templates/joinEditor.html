@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collaborative Code Editor</title>
+    <title>echodraft</title>
     <style>
         * {
             margin: 0;
@@ -140,14 +140,9 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Collaborative Code Editor</h1>
+        <h1>📝 echodraft </h1>
         
         <form id="joinForm">
-            <div class="form-group">
-                <label for="username">Your Name:</label>
-                <input type="text" id="username" name="username" placeholder="Enter your name" required>
-            </div>
-            
             <div class="form-group">
                 <label for="roomId">Room ID:</label>
                 <input type="text" id="roomId" name="roomId" placeholder="Enter room ID or leave blank for new room">
@@ -167,8 +162,9 @@
             <button type="submit" class="btn">Join/Create Room</button>
         </form>
         
-        <div class="divider">or</div>
+        <!--<div class="divider">or</div> -->
         
+        <!--
         <div class="quick-actions">
             <a href="#" class="quick-btn" onclick="quickJoin('python')">
                 🐍 Python Room
@@ -183,7 +179,7 @@
                 ⚡ C++ Room
             </a>
         </div>
-        
+        -->
         <div class="features">
             <h3>Features</h3>
             <ul>
@@ -204,17 +200,17 @@
         }
 
         // Quick join function
-        function quickJoin(language) {
-            const roomId = generateRoomId();
-            const username = prompt("Enter your name:") || "Anonymous";
-            window.location.href = `/editor/${roomId}?username=${encodeURIComponent(username)}&language=${language}`;
-        }
+        // function quickJoin(language) {
+        //     const roomId = generateRoomId();
+        //     const username = prompt("Enter your name:") || "Anonymous";
+        //     window.location.href = `/editor/${roomId}?username=${encodeURIComponent(username)}&language=${language}`;
+        // }
 
         // Handle form submission
         document.getElementById('joinForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const username = '{{ user.username }}'
             const roomId = document.getElementById('roomId').value || generateRoomId();
             const language = document.getElementById('language').value;
             

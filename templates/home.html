@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoDraft - Collaborative Live Editing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #007bff; /* Blue */
+            --secondary-color: #6c757d; /* Gray */
+            --accent-color: #28a745; /* Green */
+            --text-color: #343a40; /* Dark Gray */
+            --light-bg: #f8f9fa; /* Light Gray Background */
+            --white: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--white);
+            padding: 15px 0;
+            box-shadow: 0 2px 4px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo i {
+            margin-right: 10px;
+            color: var(--accent-color);
+        }
+
+        nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+
+        nav ul li {
+            margin-left: 25px;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        nav ul li a:hover {
+            color: var(--primary-color);
+        }
+
+        .cta-button {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        .cta-button:hover {
+            background-color: #0056b3; /* Darker blue */
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-color), #4CAF50); /* Gradient from blue to green */
+            color: var(--white);
+            text-align: center;
+            padding: 100px 20px;
+            border-bottom-left-radius: 50px;
+            border-bottom-right-radius: 50px;
+            margin-bottom: 40px;
+        }
+
+        .hero h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        .hero p {
+            font-size: 1.3em;
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            animation: fadeInUp 1.2s ease-out;
+        }
+
+        .hero .cta-button {
+            background-color: var(--accent-color);
+            padding: 15px 30px;
+            font-size: 1.1em;
+        }
+
+        .hero .cta-button:hover {
+            background-color: #218838; /* Darker green */
+        }
+
+        /* Features Section */
+        .features {
+            padding: 60px 0;
+            text-align: center;
+        }
+
+        .features h2, .how-it-works h2, .testimonials h2 {
+            font-size: 2.5em;
+            margin-bottom: 60px;
+            color: var(--primary-color);
+            position: relative;
+            display: inline-block;
+        }
+
+        .features h2::after, .how-it-works h2::after, .testimonials h2::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 4px;
+            background-color: var(--accent-color);
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .feature-item {
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 8px var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-item i {
+            font-size: 3em;
+            color: var(--accent-color);
+            margin-bottom: 20px;
+        }
+
+        .feature-item h3 {
+            font-size: 1.5em;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .feature-item p {
+            color: var(--secondary-color);
+            font-size: 0.95em;
+        }
+
+        /* How It Works Section */
+        .how-it-works {
+            background-color: var(--white);
+            padding: 80px 0;
+            text-align: center;
+            border-top: 1px solid #eee;
+        }
+
+        .steps-grid {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .step-item {
+            flex: 1;
+            min-width: 280px;
+            max-width: 350px;
+            background-color: var(--light-bg);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 5px var(--shadow);
+            position: relative;
+            text-align: left;
+        }
+
+        .step-item .step-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            background-color: var(--white);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 2px 5px var(--shadow);
+        }
+
+        .step-item h3 {
+            margin-top: 20px;
+            color: var(--primary-color);
+            font-size: 1.3em;
+        }
+
+        .step-item p {
+            color: var(--secondary-color);
+        }
+
+        /* Testimonials Section */
+        .testimonials {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .testimonial-carousel {
+            display: flex;
+            overflow-x: auto; /* Enable horizontal scrolling */
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch; /* For smoother scrolling on iOS */
+            padding-bottom: 20px; /* Space for scrollbar */
+            gap: 30px;
+            justify-content: center; /* Center items if they don't fill the space */
+        }
+
+        .testimonial-item {
+            flex: 0 0 auto; /* Do not grow, do not shrink, base on content */
+            width: 350px; /* Fixed width for each testimonial */
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 8px var(--shadow);
+            scroll-snap-align: center;
+            text-align: left;
+            position: relative;
+        }
+
+        .testimonial-item i.quote-icon {
+            font-size: 2em;
+            color: var(--accent-color);
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            opacity: 0.2;
+        }
+
+        .testimonial-item p {
+            font-style: italic;
+            margin-bottom: 20px;
+            color: var(--text-color);
+            font-size: 1.05em;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+        }
+
+        .testimonial-author img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            border: 2px solid var(--primary-color);
+        }
+
+        .author-info strong {
+            display: block;
+            color: var(--primary-color);
+            font-size: 1.1em;
+        }
+
+        .author-info span {
+            color: var(--secondary-color);
+            font-size: 0.9em;
+        }
+
+
+        /* Call to Action Section */
+        .call-to-action {
+            background: linear-gradient(45deg, #007bff, #28a745); /* Blend of primary and accent */
+            color: var(--white);
+            padding: 80px 20px;
+            text-align: center;
+            border-top-left-radius: 50px;
+            border-top-right-radius: 50px;
+            margin-top: 60px;
+        }
+
+        .call-to-action h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .call-to-action p {
+            font-size: 1.2em;
+            max-width: 700px;
+            margin: 0 auto 40px auto;
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--text-color);
+            color: var(--white);
+            padding: 40px 0;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        footer .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        footer .footer-col {
+            flex: 1;
+            min-width: 200px;
+            margin: 20px;
+        }
+
+        footer .footer-col h3 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+        }
+
+        footer .footer-col ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        footer .footer-col ul li {
+            margin-bottom: 10px;
+        }
+
+        footer .footer-col ul li a {
+            color: var(--light-bg);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        footer .footer-col ul li a:hover {
+            color: var(--primary-color);
+        }
+
+        footer .social-icons {
+            margin-top: 20px;
+        }
+
+        footer .social-icons a {
+            color: var(--white);
+            font-size: 1.5em;
+            margin-right: 15px;
+            transition: color 0.3s ease;
+        }
+
+        footer .social-icons a:hover {
+            color: var(--primary-color);
+        }
+
+        .footer-bottom {
+            margin-top: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .hero h1 {
+                font-size: 2.8em;
+            }
+
+            .hero p {
+                font-size: 1.1em;
+            }
+
+            .feature-grid {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }
+
+            .how-it-works .steps-grid {
+                flex-direction: column;
+                align-items: center;
+            }
+            .step-item {
+                max-width: 90%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            nav ul {
+                margin-top: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            nav ul li {
+                margin: 0 10px 10px 10px;
+            }
+            .hero {
+                padding: 80px 20px;
+            }
+            .hero h1 {
+                font-size: 2.2em;
+            }
+            .hero p {
+                font-size: 1em;
+            }
+            .features h2, .how-it-works h2, .testimonials h2, .call-to-action h2 {
+                font-size: 2em;
+                margin-bottom: 40px;
+            }
+            .testimonial-carousel {
+                justify-content: flex-start; /* Allow scroll on smaller screens */
+            }
+            .testimonial-item {
+                width: 90%; /* Adjust width for smaller screens */
+                margin: 0 auto;
+            }
+            footer .container {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            footer .footer-col {
+                margin-bottom: 30px;
+                width: 100%;
+            }
+            footer .footer-col ul {
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 1.5em;
+            }
+            nav ul li a {
+                font-size: 0.9em;
+            }
+            .cta-button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+            .hero {
+                padding: 60px 15px;
+            }
+            .hero h1 {
+                font-size: 1.8em;
+            }
+            .hero p {
+                font-size: 0.9em;
+            }
+            .feature-item {
+                padding: 20px;
+            }
+            .feature-item h3 {
+                font-size: 1.3em;
+            }
+            .step-item .step-number {
+                width: 50px;
+                height: 50px;
+                font-size: 2em;
+                top: -15px;
+                left: -15px;
+            }
+            .call-to-action h2 {
+                font-size: 2em;
+            }
+            .call-to-action p {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="#" class="logo"><i class="fas fa-edit"></i>EchoDraft</a>
+            <nav>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How it Works</a></li>
+                    <li><a href="#testimonials">Testimonials</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+            <a href="/login" class="cta-button">Sign In</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h1>Collaborative Live Editing, Reimagined.</h1>
+                <p>EchoDraft provides a seamless, real-time platform for teams to co-create documents, code, and ideas without missing a beat.</p>
+                <a href="/signup" class="cta-button">Start Editing Now - It's Free!</a>
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <div class="container">
+                <h2>Why Choose EchoDraft?</h2>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <i class="fas fa-users"></i>
+                        <h3>Real-time Collaboration</h3>
+                        <p>Experience instant updates as multiple users edit the same document simultaneously. See every keystroke.</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-history"></i>
+                        <h3>Version History & Restore</h3>
+                        <p>Never lose a change. Track every revision, revert to previous versions, and compare differences with ease.</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-lock"></i>
+                        <h3>Secure & Private</h3>
+                        <p>Your data is encrypted and secure. Control who has access to your documents with granular permissions.</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-comments"></i>
+                        <h3>Integrated Chat & Comments</h3>
+                        <p>Communicate directly within your documents. Discuss changes and leave feedback in context.</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Cloud Sync & Access</h3>
+                        <p>Access your projects from anywhere, on any device. Your work is always synchronized in the cloud.</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-code"></i>
+                        <h3>Code & Rich Text Support</h3>
+                        <p>From rich text documents to code files, EchoDraft handles various formats with syntax highlighting and formatting options.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="how-it-works">
+            <div class="container">
+                <h2>How EchoDraft Works</h2>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <span class="step-number">1</span>
+                        <h3>Create a Document</h3>
+                        <p>Start a new document or import an existing one. EchoDraft provides a clean and intuitive editor.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-number">2</span>
+                        <h3>Invite Collaborators</h3>
+                        <p>Share a unique link or invite team members by email. Set their permissions (view, edit, comment).</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-number">3</span>
+                        <h3>Edit in Real-time</h3>
+                        <p>Work together seamlessly. See everyone's cursors and changes as they happen, live on your screen.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="testimonials" class="testimonials">
+            <div class="container">
+                <h2>What Our Users Say</h2>
+                <div class="testimonial-carousel">
+                    <div class="testimonial-item">
+                        <i class="fas fa-quote-right quote-icon"></i>
+                        <p>"EchoDraft has revolutionized how our remote team works. The real-time editing is incredibly fluid, and the version history is a lifesaver!"</p>
+                        <div class="testimonial-author">
+                            <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Jane Doe">
+                            <div class="author-info">
+                                <strong>Jane Doe</strong>
+                                <span>Project Manager, Tech Innovations</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-item">
+                        <i class="fas fa-quote-right quote-icon"></i>
+                        <p>"As a developer, I love using EchoDraft for pair programming and code reviews. The syntax highlighting and live updates make it perfect."</p>
+                        <div class="testimonial-author">
+                            <img src="https://randomuser.me/api/portraits/men/44.jpg" alt="John Smith">
+                            <div class="author-info">
+                                <strong>John Smith</strong>
+                                <span>Lead Developer, CodeCrafters</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-item">
+                        <i class="fas fa-quote-right quote-icon"></i>
+                        <p>"The ease of use and powerful collaboration features of EchoDraft are unmatched. It's an essential tool for our content creation team."</p>
+                        <div class="testimonial-author">
+                            <img src="https://randomuser.me/api/portraits/women/79.jpg" alt="Emily White">
+                            <div class="author-info">
+                                <strong>Emily White</strong>
+                                <span>Content Strategist, Digital Bloom</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-item">
+                        <i class="fas fa-quote-right quote-icon"></i>
+                        <p>"Finally, a collaborative editor that just works! No lag, no glitches, just pure productivity. Highly recommend EchoDraft."</p>
+                        <div class="testimonial-author">
+                            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Michael Brown">
+                            <div class="author-info">
+                                <strong>Michael Brown</strong>
+                                <span>Freelance Writer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="call-to-action">
+            <div class="container">
+                <h2>Ready to Elevate Your Collaboration?</h2>
+                <p>Join thousands of teams who are already experiencing the future of live editing. Sign up for free today!</p>
+                <a href="/signup" class="cta-button">Get Started with EchoDraft</a>
+            </div>
+        </section>
+    </main>
+
+    <footer id="contact">
+        <div class="container">
+            <div class="footer-col">
+                <h3>EchoDraft</h3>
+                <p>Collaborative Live Editing, Reimagined.</p>
+                <div class="social-icons">
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How it Works</a></li>
+                    <li><a href="#">Pricing</a></li>
+                    <li><a href="#">FAQ</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Company</h3>
+                <ul>
+                    <li><a href="#">About Us</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Contact Us</h3>
+                <p>Email: <a href="mailto:info@echodraft.com" style="color: var(--light-bg); text-decoration: none;">info@echodraft.com</a></p>
+                <p>Phone: +1 (123) 456-7890</p>
+                <p>Address: 123 Collaboration St, Suite 400, Innovate City, CA 90210</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>EchoDraft. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Simple smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Function to get current year for footer (Flask integration)
+        function moment() {
+            return {
+                format: function(str) {
+                    if (str === 'YYYY') {
+                        return new Date().getFullYear();
+                    }
+                    return '';
+                }
+            };
+        }
+    </script>
+</body>
+</html>

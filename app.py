@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify
+from flask import send_from_directory, redirect, url_for, flash, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from sqlalchemy import or_ # Import for OR queries
 
 from dotenv import load_dotenv
 from datetime import datetime
@@ -55,9 +57,125 @@ SUPPORTED_LANGUAGES = {
     'swift': {'extension': '.swift', 'mode': 'text/x-swift'}
 }
 
+# @app.route('/')
+# def index():
+#     return render_template('joinEditor.html', languages=SUPPORTED_LANGUAGES)
+
 @app.route('/')
-def index():
-    return render_template('index.html', languages=SUPPORTED_LANGUAGES)
+def home():
+    """
+    Home page. Redirects to login if not authenticated, otherwise shows dashboard.
+    """
+    if 'user_id' not in session:
+        return render_template('home.html')
+
+    user_id = session['user_id']
+    user = User.query.get(user_id)
+    if user:
+        return render_template('joinEditor.html', languages=SUPPORTED_LANGUAGES, user=user)
+    else:
+        # User ID in session but user not found (e.g., deleted)
+        session.pop('user_id', None)
+        session.pop('username', None)
+        flash('Your session is invalid. Please log in again.', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Handles user login.
+    GET: Displays the login form.
+    POST: Processes the form submission, authenticates the user.
+    """
+    if 'user_id' in session: # If already logged in, redirect to home
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        email_or_username = request.form.get('email_or_username')
+        password = request.form.get('password')
+
+        if not email_or_username or not password:
+            flash('Please enter your email/username and password.', 'danger')
+            return render_template('login.html', email_or_username=email_or_username)
+
+        # Try to find user by email or username
+        user = User.query.filter(or_(User.email == email_or_username, User.username == email_or_username)).first()
+
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            session['username'] = user.username # Store username for display
+            flash(f'Welcome back, {user.username}!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid email/username or password.', 'danger')
+            return render_template('login.html', email_or_username=email_or_username)
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """
+    Logs out the current user by clearing the session.
+    """
+    session.pop('user_id', None)
+    session.pop('username', None)
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    """
+    Handles user registration (signup).
+    GET: Displays the signup form.
+    POST: Processes the form submission, creates a new user.
+    """
+    if 'user_id' in session: # If already logged in, redirect to home
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not all([username, email, password, confirm_password]):
+            flash('All fields are required!', 'danger')
+            return render_template('signup.html', username=username, email=email)
+
+        if password != confirm_password:
+            flash('Passwords do not match!', 'danger')
+            return render_template('signup.html', username=username, email=email)
+
+        if len(password) < 6:
+            flash('Password must be at least 6 characters long.', 'danger')
+            return render_template('signup.html', username=username, email=email)
+
+        # Check if username or email already exists
+        existing_user = User.query.filter(or_(User.username == username, User.email == email)).first()
+        if existing_user:
+            if existing_user.username == username:
+                flash('Username already taken. Please choose a different one.', 'danger')
+            else:
+                flash('Email already registered. Please use a different email or log in.', 'danger')
+            return render_template('signup.html', username=username, email=email)
+
+        try:
+            # Create a new user (let the model handle the UUID)
+            new_user = User(username=username, email=email, is_guest=False)
+            new_user.set_password(password)
+            db.session.add(new_user)
+            db.session.commit()
+            
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            # Do not expose the actual error, instead log the error 
+            flash('An error occurred during registration. Please try again.', 'danger')
+            logger.error(f"Error during registration: {e}")
+            return render_template('signup.html', username=username, email=email)
+
+    return render_template('signup.html')
 
 @app.route('/editor/<room_id>')
 def editor(room_id):

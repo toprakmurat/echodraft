@@ -1,9 +1,14 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+
 from datetime import datetime
 import json
 import uuid
 
 db = SQLAlchemy()
+
+# Initialize Bcrypt globally
+bcrypt = Bcrypt()
 
 class Room(db.Model):
     __tablename__ = 'rooms'
@@ -109,6 +114,16 @@ class User(db.Model):
     sessions = db.relationship('UserSession', backref='user', lazy=True, cascade='all, delete-orphan')
     revisions = db.relationship('DocumentRevision', backref='user', lazy=True)
     
+    def set_password(self, password):
+        """Hashes the password and stores it."""
+        # FIX: Uncomment and correctly use bcrypt to hash the password
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        """Checks if the provided password matches the stored hash."""
+        # FIX: Uncomment and correctly use bcrypt to check the password
+        return bcrypt.check_password_hash(self.password_hash, password)
+
     def to_dict(self):
         return {
             'id': self.id,
