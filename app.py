@@ -652,4 +652,5 @@ def on_restore_revision(data):
         emit('error', {'message': 'Failed to restore revision'})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=3000)
+    port = int(os.environ.get("PORT", 3000))
+    socketio.run(app, debug=False, host='0.0.0.0', port=port)
