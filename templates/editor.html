@@ -372,7 +372,8 @@
             updateConnectionStatus(true);
             socket.emit('join_room', {
                 room_id: roomId,
-                username: username
+                username: username,
+                language: currentLanguage
             });
         });
 

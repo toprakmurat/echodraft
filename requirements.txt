@@ -7,6 +7,7 @@ python-engineio==4.7.1
 Flask-CORS==4.0.0
 Werkzeug==2.3.7
 bcrypt==4.0.1
+Flask-Bcrypt==1.0.1
 python-dotenv==1.0.0
 uuid==1.30
 pytest==7.4.2

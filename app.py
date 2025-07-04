@@ -302,7 +302,8 @@ def on_join_room(data):
     try:
         room_id = data['room_id']
         username = data.get('username', f'User_{request.sid[:8]}')
-        
+        language = data.get('language', 'javascript')
+
         # Get or create room
         room = get_or_create_room(room_id)
         
@@ -326,7 +327,7 @@ def on_join_room(data):
         document = get_or_create_document(
             room_id,
             initial_content='# Welcome to the collaborative editor!\n# Start typing to begin...',
-            language='markdown'
+            language=language
         )
         
         # Get active users in room
