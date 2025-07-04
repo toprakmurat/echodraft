@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 from flask import send_from_directory, redirect, url_for, flash, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from sqlalchemy import or_ # Import for OR queries
+from email_validator import validate_email, EmailNotValidError
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from dotenv import load_dotenv
 from datetime import datetime
@@ -56,6 +58,56 @@ SUPPORTED_LANGUAGES = {
     'kotlin': {'extension': '.kt', 'mode': 'text/x-kotlin'},
     'swift': {'extension': '.swift', 'mode': 'text/x-swift'}
 }
+
+import re
+
+def _validate_password(password, confirm_password):
+    """
+    Validates password and confirms it matches, enforcing complexity rules.
+    Returns (True, None) if valid, or (False, error_message) if invalid.
+    """
+    if password != confirm_password:
+        return False, 'Passwords do not match!'
+
+    if len(password) < 8:
+        return False, 'Password must be at least 8 characters long.'
+
+    # Check for at least one uppercase letter
+    if not re.search(r'[A-Z]', password):
+        return False, 'Password must contain at least one uppercase letter.'
+
+    # Check for at least one lowercase letter
+    if not re.search(r'[a-z]', password):
+        return False, 'Password must contain at least one lowercase letter.'
+
+    # Check for at least one digit
+    if not re.search(r'\d', password):
+        return False, 'Password must contain at least one digit.'
+
+    # Check for at least one special character (using a common set)
+    # You can customize this set of special characters as needed
+    if not re.search(r'[!@#$%^&*()_+{}\[\]:;<>,.?~\\-]', password):
+        return False, 'Password must contain at least one special character (e.g., !@#$%^&*).'
+        
+    # Optional: Prevent common and easily guessable passwords (you'd typically load this from a list)
+    common_passwords = ["password", "123456", "qwerty", "admin", "welcome"]
+    if password.lower() in common_passwords:
+        return False, 'Password is too common and easily guessable.'
+
+    return True, None
+
+def _validate_and_normalize_email(email_address):
+    """
+    Validates an email address and returns its normalized form if valid.
+    Returns a tuple: (True, normalized_email) or (False, error_message).
+    """
+    try:
+        # check_deliverability=True takes 15 seconds to check, if false, it is 200 ms
+        validated_email_info = validate_email(email_address, check_deliverability=False)
+        normalized_email = validated_email_info.email
+        return True, normalized_email
+    except EmailNotValidError as e:
+        return False, str(e)
 
 # @app.route('/')
 # def index():
@@ -131,7 +183,7 @@ def signup():
     GET: Displays the signup form.
     POST: Processes the form submission, creates a new user.
     """
-    if 'user_id' in session: # If already logged in, redirect to home
+    if 'user_id' in session:  # If already logged in, redirect to home
         return redirect(url_for('home'))
 
     if request.method == 'POST':
@@ -140,41 +192,56 @@ def signup():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
+        # Helper function to re-render the form with existing data and a flash message
+        def render_signup_form_with_data(message, category='danger'):
+            flash(message, category)
+            return render_template('signup.html', username=username, email=email)
+
         if not all([username, email, password, confirm_password]):
-            flash('All fields are required!', 'danger')
-            return render_template('signup.html', username=username, email=email)
+            return render_signup_form_with_data('All fields are required!')
 
-        if password != confirm_password:
-            flash('Passwords do not match!', 'danger')
-            return render_template('signup.html', username=username, email=email)
+        is_password_valid, password_error_message = _validate_password(password, confirm_password)
+        if not is_password_valid:
+            return render_signup_form_with_data(password_error_message)
 
-        if len(password) < 6:
-            flash('Password must be at least 6 characters long.', 'danger')
-            return render_template('signup.html', username=username, email=email)
+        is_email_valid, email_validation_result = _validate_and_normalize_email(email)
+        if not is_email_valid:
+            return render_signup_form_with_data(f"Invalid email: {email_validation_result}")
+        
+        normalized_email = email_validation_result 
 
-        # Check if username or email already exists
-        existing_user = User.query.filter(or_(User.username == username, User.email == email)).first()
+        # Check if username or normalized email already exists
+        existing_user = User.query.filter(
+            or_(User.username == username, User.email == normalized_email)
+        ).first()
+
         if existing_user:
             if existing_user.username == username:
-                flash('Username already taken. Please choose a different one.', 'danger')
-            else:
-                flash('Email already registered. Please use a different email or log in.', 'danger')
-            return render_template('signup.html', username=username, email=email)
+                return render_signup_form_with_data(
+                    'Username already taken. Please choose a different one.')
+            else:  # existing_user.email == normalized_email
+                return render_signup_form_with_data(
+                    'Email already registered. Please use a different email or log in.')
 
         try:
-            # Create a new user (let the model handle the UUID)
-            new_user = User(username=username, email=email, is_guest=False)
+            new_user = User(
+                username=username,
+                email=normalized_email,
+                is_guest=False
+            )
             new_user.set_password(password)
+            
             db.session.add(new_user)
             db.session.commit()
             
             flash('Account created successfully! Please log in.', 'success')
             return redirect(url_for('login'))
+            
         except Exception as e:
             db.session.rollback()
-            # Do not expose the actual error, instead log the error 
-            flash('An error occurred during registration. Please try again.', 'danger')
             logger.error(f"Error during registration: {e}")
+            flash('An error occurred during registration. Please try again.', 'danger')
+            # re-render the form with existing data on DB error as well
             return render_template('signup.html', username=username, email=email)
 
     return render_template('signup.html')
