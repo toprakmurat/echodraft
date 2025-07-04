@@ -181,11 +181,27 @@ def signup():
 
 @app.route('/editor/<room_id>')
 def editor(room_id):
-    room = get_or_create_room(room_id)
-    return render_template('editor.html', 
-                            languages=SUPPORTED_LANGUAGES, 
-                            room_id=room_id, 
-                            room=room)
+    username = request.args.get('username') or f"Guest-{str(uuid.uuid4())[:6]}"
+    language = request.args.get('language')
+    
+    room = get_or_create_room(room_id, language=language)
+    user = get_or_create_user(username)
+
+    # If the room exists but the URL has no language, redirect to add it
+    if not language:
+        return redirect(url_for('editor', room_id=room.id, username=user.username, language=room.language))
+
+    # If the language in the URL doesn't match the room's language, redirect with correct one
+    if language != room.language:
+        return redirect(url_for('editor', room_id=room.id, username=user.username, language=room.language))
+
+    # Proceed to render editor page with consistent language
+    return render_template('editor.html',
+                            room_id=room_id,
+                            room=room, 
+                            username=user.username, 
+                            language=room.language,
+                            supported_languages=SUPPORTED_LANGUAGES)
 
 @app.route('/api/rooms/<room_id>')
 def get_room_info(room_id):
@@ -291,7 +307,8 @@ def on_join_room(data):
         room = get_or_create_room(room_id)
         
         # Get or create user
-        user = get_or_create_user(username, request.sid)
+        # user = get_or_create_user(username, request.sid)
+        user = get_or_create_user(username)
 
         # Create user session
         session = create_user_session(user.id, room_id, request.sid)

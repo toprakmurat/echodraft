@@ -231,7 +231,7 @@
         <div class="header-right">
             <div class="language-selector">
                 <select id="languageSelect">
-                    {% for lang_key, lang_info in languages.items() %}
+                    {% for lang_key, lang_info in supported_languages.items() %}
                         <option value="{{ lang_key }}">{{ lang_key.title() }}</option>
                     {% endfor %}
                 </select>
@@ -388,6 +388,11 @@
             editor.setOption('mode', languageModes[currentLanguage]);
             updateDocumentInfo();
             isReceivingChange = false;
+
+            // 🔄 Update URL without reloading
+            const url = new URL(window.location);
+            url.searchParams.set('language', currentLanguage);
+            window.history.replaceState({}, '', url);
         });
 
         socket.on('text_change', function(data) {
@@ -405,6 +410,11 @@
                 editor.setOption('mode', languageModes[currentLanguage]);
                 updateDocumentInfo();
                 showNotification(`Language changed to ${currentLanguage.toUpperCase()}`);
+
+                // 🔄 Update URL without reloading
+                const url = new URL(window.location);
+                url.searchParams.set('language', currentLanguage);
+                window.history.replaceState({}, '', url);
             }
         });
 
@@ -417,7 +427,7 @@
         socket.on('user_left', function(data) {
             connectedUsers.delete(data.user_id);
             updateUserCount(data.active_users);
-            showNotification(`User left the room`);
+            showNotification(`Guest left the room`);
         });
 
         socket.on('cursor_change', function(data) {
@@ -495,18 +505,24 @@
         }
 
 
-        // Event Listeners
         document.getElementById('languageSelect').addEventListener('change', function() {
             const newLanguage = this.value;
             currentLanguage = newLanguage;
             editor.setOption('mode', languageModes[newLanguage]);
             updateDocumentInfo();
             
+            // 🔄 Update URL without reloading
+            const url = new URL(window.location);
+            url.searchParams.set('language', newLanguage);
+            window.history.replaceState({}, '', url);
+
+            // 🔁 Notify other users
             socket.emit('language_change', {
                 room_id: roomId,
                 language: newLanguage
             });
         });
+
 
         document.getElementById('themeSelect').addEventListener('change', function() {
             const newTheme = this.value;

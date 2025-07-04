@@ -15,6 +15,7 @@ class Room(db.Model):
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(100), nullable=True)
+    language = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
@@ -196,16 +197,16 @@ def init_db():
     """Initialize database tables"""
     db.create_all()
 
-def get_or_create_room(room_id, name=None):
+def get_or_create_room(room_id, name=None, language='javascript'):
     """Get existing room or create new one"""
     room = Room.query.filter_by(id=room_id).first()
     if not room:
-        room = Room(id=room_id, name=name)
+        room = Room(id=room_id, name=name, language=language)
         db.session.add(room)
         db.session.commit()
     return room
 
-def  get_or_create_user(username, socket_id):
+def get_or_create_user(username):
     """Get existing user or create new guest user"""
 
     user = User.query.filter(User.username == username).first()
