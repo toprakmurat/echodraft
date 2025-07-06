@@ -486,6 +486,11 @@
             cursorLabel.textContent = `${usrname}`;
             cursorWidget.appendChild(cursorLabel);
 
+            // Flip the cursor if its first line
+            if (cursor.line === 0) {
+                cursorLabel.style.top = '16px';
+            }
+            
             const coords = editor.charCoords({ line: cursor.line, ch: cursor.ch }, 'local');
             cursorWidget.style.left = (coords.left + 30) + 'px'; // adjust -1 or -2px as needed
             cursorWidget.style.top = coords.top + 'px';
