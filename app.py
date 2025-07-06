@@ -375,7 +375,6 @@ def on_join_room(data):
         room = get_or_create_room(room_id)
         
         # Get or create user
-        # user = get_or_create_user(username, request.sid)
         user = get_or_create_user(username)
 
         # Create user session
@@ -461,6 +460,78 @@ def on_leave_room(data):
     except Exception as e:
         logger.error(f"Error leaving room: {str(e)}")
 
+# Handle individual text operations instead of full content replacement
+@socketio.on('text_operation')
+def on_text_operation(data):
+    try:
+        room_id = data['room_id']
+        operation = data['operation']  # Contains: type, from, to, text, removed
+        
+        if request.sid not in active_connections:
+            emit('error', {'message': 'Not connected to room'})
+            return
+        
+        user_id = active_connections[request.sid]['user_id']
+        
+        # Get document
+        document = get_or_create_document(room_id)
+        
+        # Apply operation to document content
+        if operation['type'] == 'insert':
+            # Insert text at position
+            lines = document.content.splitlines(True)
+            if not lines:
+                lines = ['']
+            
+            line_idx = operation['from']['line']
+            ch_idx = operation['from']['ch']
+            
+            if line_idx < len(lines):
+                line = lines[line_idx]
+                lines[line_idx] = line[:ch_idx] + operation['text'] + line[ch_idx:]
+            
+            document.content = ''.join(lines)
+            
+        elif operation['type'] == 'delete':
+            # Remove text from position
+            lines = document.content.splitlines(True)
+            if not lines:
+                lines = ['']
+            
+            from_line = operation['from']['line']
+            from_ch = operation['from']['ch']
+            to_line = operation['to']['line']
+            to_ch = operation['to']['ch']
+            
+            if from_line == to_line:
+                # Single line deletion
+                if from_line < len(lines):
+                    line = lines[from_line]
+                    lines[from_line] = line[:from_ch] + line[to_ch:]
+            else:
+                # Multi-line deletion
+                if from_line < len(lines) and to_line < len(lines):
+                    lines[from_line] = lines[from_line][:from_ch] + lines[to_line][to_ch:]
+                    del lines[from_line + 1:to_line + 1]
+            
+            document.content = ''.join(lines)
+        
+        # Update document
+        document.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        # Broadcast operation to all other users in the room
+        emit('text_operation', {
+            'operation': operation,
+            'user_id': user_id,
+            'version': document.version
+        }, room=room_id, include_self=False)
+        
+    except Exception as e:
+        logger.error(f"Error handling text operation: {str(e)}")
+        emit('error', {'message': 'Failed to apply text operation'})
+
+# Keep the old text_change as fallback for bulk updates
 @socketio.on('text_change')
 def on_text_change(data):
     try:
@@ -506,6 +577,7 @@ def on_cursor_change(data):
         
         user_id = active_connections[request.sid]['user_id']
         username = User.query.get(user_id).username
+        
         # Update cursor position in session
         session = UserSession.query.filter_by(
             socket_id=request.sid,

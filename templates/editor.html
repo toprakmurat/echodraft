@@ -297,14 +297,17 @@
         const roomId = "{{ room_id }}";
         let editor;
         let isReceivingChange = false;
+        let isAdjustingCursor = false;  // Flag to prevent cursor events during adjustments
         let connectedUsers = new Set();
-        
+        let lastCursorPosition = null;
+        let changeTimeout = null;
+
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const username = urlParams.get('username') || `Guest-${crypto.randomUUID().slice(0, 6)}`;
         let currentLanguage = urlParams.get('language') || 'javascript';
         const initialLanguage = urlParams.get('language') || 'javascript';
-        
+
         // Language mode mapping
         const languageModes = {
             'python': 'python',
@@ -343,27 +346,52 @@
                 gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
             });
 
-            // Handle text changes
+            // Handle text changes with operational transformation
             editor.on('change', function(instance, changeObj) {
                 if (!isReceivingChange) {
-                    const content = instance.getValue();
-                    socket.emit('text_change', {
+                    // Store cursor position before change
+                    lastCursorPosition = instance.getCursor();
+                    
+                    // Create operation object
+                    const operation = {
+                        type: changeObj.origin === '+delete' ? 'delete' : 'insert',
+                        from: changeObj.from,
+                        to: changeObj.to,
+                        text: changeObj.text ? changeObj.text.join('\n') : '',
+                        removed: changeObj.removed ? changeObj.removed.join('\n') : ''
+                    };
+                    
+                    // Emit the operation instead of full content
+                    socket.emit('text_operation', {
                         room_id: roomId,
-                        content: content
+                        operation: operation
                     });
+                    
+                    // Debounce full content sync as backup
+                    if (changeTimeout) {
+                        clearTimeout(changeTimeout);
+                    }
+                    changeTimeout = setTimeout(() => {
+                        socket.emit('text_change', {
+                            room_id: roomId,
+                            content: instance.getValue()
+                        });
+                    }, 1000);
                 }
             });
 
-            // Handle cursor changes
             editor.on('cursorActivity', function(instance) {
-                const cursor = instance.getCursor();
-                socket.emit('cursor_change', {
-                    room_id: roomId,
-                    cursor: {
-                        line: cursor.line,
-                        ch: cursor.ch
-                    }
-                });
+                // Don't emit cursor changes if we're receiving changes or adjusting cursor position
+                if (!isReceivingChange && !isAdjustingCursor) {
+                    const cursor = instance.getCursor();
+                    socket.emit('cursor_change', {
+                        room_id: roomId,
+                        cursor: {
+                            line: cursor.line,
+                            ch: cursor.ch
+                        }
+                    });
+                }
             });
         }
 
@@ -388,18 +416,128 @@
             document.getElementById('languageSelect').value = currentLanguage;
             editor.setOption('mode', languageModes[currentLanguage]);
             updateDocumentInfo();
-            isReceivingChange = false;
+            
+            // Reset flag after a short delay
+            setTimeout(() => {
+                isReceivingChange = false;
+            }, 10);
 
-            // 🔄 Update URL without reloading
+            // Update URL without reloading
             const url = new URL(window.location);
             url.searchParams.set('language', currentLanguage);
             window.history.replaceState({}, '', url);
         });
 
+        socket.on('text_operation', function(data) {
+            if (data.user_id !== socket.id) {
+                isReceivingChange = true;
+                
+                // Store current cursor position
+                const currentCursor = editor.getCursor();
+                
+                // Apply the operation
+                const operation = data.operation;
+                
+                if (operation.type === 'insert') {
+                    editor.replaceRange(operation.text, operation.from, operation.from);
+                } else if (operation.type === 'delete') {
+                    editor.replaceRange('', operation.from, operation.to);
+                }
+                
+                // Set flag before adjusting cursor to prevent cursor events
+                isAdjustingCursor = true;
+                
+                // Restore cursor position with adjustment for the operation
+                let newCursor = adjustCursorPosition(currentCursor, operation);
+                editor.setCursor(newCursor);
+                
+                // Reset flags after a short delay to ensure cursor is set
+                setTimeout(() => {
+                    isAdjustingCursor = false;
+                    isReceivingChange = false;
+                }, 10);
+            }
+        });
+        // Adjust cursor position based on operation
+        function adjustCursorPosition(cursor, operation) {
+            const opLine = operation.from.line;
+            const opCh = operation.from.ch;
+            
+            if (operation.type === 'insert') {
+                const insertedLines = operation.text.split('\n');
+                const insertedLineCount = insertedLines.length - 1;
+                
+                if (cursor.line > opLine) {
+                    // Cursor is after the operation line
+                    return {
+                        line: cursor.line + insertedLineCount,
+                        ch: cursor.ch
+                    };
+                } else if (cursor.line === opLine && cursor.ch > opCh) {
+                    // Cursor is on the same line, after the operation
+                    if (insertedLineCount > 0) {
+                        // Multi-line insert
+                        return {
+                            line: cursor.line + insertedLineCount,
+                            ch: cursor.ch - opCh + insertedLines[insertedLines.length - 1].length
+                        };
+                    } else {
+                        // Single line insert
+                        return {
+                            line: cursor.line,
+                            ch: cursor.ch + operation.text.length
+                        };
+                    }
+                }
+            } else if (operation.type === 'delete') {
+                const deletedLines = operation.to.line - operation.from.line;
+                
+                if (cursor.line > operation.to.line) {
+                    // Cursor is after the deleted range
+                    return {
+                        line: cursor.line - deletedLines,
+                        ch: cursor.ch
+                    };
+                } else if (cursor.line === operation.to.line && cursor.ch > operation.to.ch) {
+                    // Cursor is on the end line of deletion
+                    return {
+                        line: operation.from.line,
+                        ch: operation.from.ch + (cursor.ch - operation.to.ch)
+                    };
+                } else if (cursor.line >= operation.from.line) {
+                    // Cursor is within the deleted range
+                    return {
+                        line: operation.from.line,
+                        ch: operation.from.ch
+                    };
+                }
+            }
+            
+            // No adjustment needed
+            return cursor;
+        }
+
+        // Fallback for full content updates
         socket.on('text_change', function(data) {
             if (data.user_id !== socket.id) {
                 isReceivingChange = true;
+                
+                // Store cursor position
+                const currentCursor = editor.getCursor();
+                
+                // Update content
                 editor.setValue(data.content);
+                
+                // Try to restore cursor position
+                try {
+                    editor.setCursor(currentCursor);
+                } catch (e) {
+                    // If cursor position is invalid, place it at the end
+                    const lastLine = editor.lastLine();
+                    const lastLineLength = editor.getLine(lastLine).length;
+                    editor.setCursor(lastLine, lastLineLength);
+                }
+                
                 isReceivingChange = false;
             }
         });
@@ -412,7 +550,7 @@
                 updateDocumentInfo();
                 showNotification(`Language changed to ${currentLanguage.toUpperCase()}`);
 
-                // 🔄 Update URL without reloading
+                // Update URL without reloading
                 const url = new URL(window.location);
                 url.searchParams.set('language', currentLanguage);
                 window.history.replaceState({}, '', url);
@@ -434,6 +572,21 @@
         socket.on('cursor_change', function(data) {
             // Handle other users' cursor positions
             displayCursor(data.user_id, data.username, data.cursor);
+        });
+
+        socket.on('document_restored', function(data) {
+            isReceivingChange = true;
+            editor.setValue(data.content);
+            currentLanguage = data.language;
+            document.getElementById('languageSelect').value = currentLanguage;
+            editor.setOption('mode', languageModes[currentLanguage]);
+            updateDocumentInfo();
+            showNotification(`Document restored from version ${data.restored_from}`);
+            
+            // Reset flag after a short delay
+            setTimeout(() => {
+                isReceivingChange = false;
+            }, 10);
         });
 
         // UI Functions
@@ -492,9 +645,8 @@
             }
             
             const coords = editor.charCoords({ line: cursor.line, ch: cursor.ch }, 'local');
-            cursorWidget.style.left = (coords.left + 30) + 'px'; // adjust -1 or -2px as needed
+            cursorWidget.style.left = (coords.left + 30) + 'px';
             cursorWidget.style.top = coords.top + 'px';
-
 
             document.querySelector('.CodeMirror').appendChild(cursorWidget);
 
@@ -507,29 +659,29 @@
                 const cursor = document.getElementById(`cursor-${userId}`);
                 if (cursor) cursor.remove();
                 delete cursorTimeouts[userId];
-            }, 5000);
+            }, 3000);
         }
 
-
+        // Language selection handler
         document.getElementById('languageSelect').addEventListener('change', function() {
             const newLanguage = this.value;
             currentLanguage = newLanguage;
             editor.setOption('mode', languageModes[newLanguage]);
             updateDocumentInfo();
             
-            // 🔄 Update URL without reloading
+            // Update URL without reloading
             const url = new URL(window.location);
             url.searchParams.set('language', newLanguage);
             window.history.replaceState({}, '', url);
 
-            // 🔁 Notify other users
+            // Notify other users
             socket.emit('language_change', {
                 room_id: roomId,
                 language: newLanguage
             });
         });
 
-
+        // Theme selection handler
         document.getElementById('themeSelect').addEventListener('change', function() {
             const newTheme = this.value;
             editor.setOption('theme', newTheme);
@@ -586,7 +738,7 @@
 
         // Initialize
         initEditor();
-        
+
         // Set initial language
         currentLanguage = initialLanguage;
         document.getElementById('languageSelect').value = currentLanguage;
