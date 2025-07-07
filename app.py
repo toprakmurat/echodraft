@@ -122,7 +122,7 @@ def home():
         return render_template('home.html')
 
     user_id = session['user_id']
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
     if user:
         return render_template('joinEditor.html', languages=SUPPORTED_LANGUAGES, user=user)
     else:
@@ -248,8 +248,9 @@ def signup():
 
 @app.route('/editor/<room_id>')
 def editor(room_id):
-    username = request.args.get('username') or f"Guest-{str(uuid.uuid4())[:6]}"
-    language = request.args.get('language')
+    current_username = session.get('username', None)
+    username = current_username or request.args.get('username') or f"Guest-{str(uuid.uuid4())[:6]}"
+    language = request.args.get('language') or 'javascript'
     
     room = get_or_create_room(room_id, language=language)
     user = get_or_create_user(username)
@@ -335,6 +336,10 @@ def on_disconnect():
             room_id = active_connections[request.sid]['room_id']
             user_id = active_connections[request.sid]['user_id']
             
+            # Delete if the user is guest at the end
+            user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+            username = user.username or 'Guest'
+
             # Remove from active connections
             del active_connections[request.sid]
             
@@ -345,14 +350,11 @@ def on_disconnect():
             emit('user_left', {
                 'user_id': user_id,
                 'active_users': len(active_users),
-                'users': [user for user in active_users]
+                'username': username
             }, room=room_id)
             
             # Update room statistics
             update_room_stats(room_id)
-            
-            # Delete if the user is guest
-            user = User.query.get(user_id)
 
             if not user:
                 return f"User with ID {user_id} not found.", 404
@@ -448,7 +450,7 @@ def on_leave_room(data):
             }, room=room_id)
 
             # Delete if the user is guest
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
 
             if not user:
                 return f"User with ID {user_id} not found.", 404
@@ -576,7 +578,8 @@ def on_cursor_change(data):
             return
         
         user_id = active_connections[request.sid]['user_id']
-        username = User.query.get(user_id).username
+        user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+        username = user.username
         
         # Update cursor position in session
         session = UserSession.query.filter_by(

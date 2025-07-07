@@ -304,7 +304,7 @@
 
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const username = urlParams.get('username') || `Guest-${crypto.randomUUID().slice(0, 6)}`;
+        const username = urlParams.get('username') || '{{ username }}' || `Guest-${crypto.randomUUID().slice(0, 6)}`;
         let currentLanguage = urlParams.get('language') || 'javascript';
         const initialLanguage = urlParams.get('language') || 'javascript';
 
@@ -561,12 +561,18 @@
             connectedUsers.add(data.user_id);
             updateUserCount(data.active_users);
             showNotification(`${data.username} joined the room`);
+
+            // Update URL without reloading
+            const url = new URL(window.location);
+            url.searchParams.set('username', username);
+            url.searchParams.set('language', currentLanguage);
+            window.history.replaceState({}, '', url);    
         });
 
         socket.on('user_left', function(data) {
             connectedUsers.delete(data.user_id);
             updateUserCount(data.active_users);
-            showNotification(`Guest left the room`);
+            showNotification(`${data.username} left the room`);
         });
 
         socket.on('cursor_change', function(data) {
