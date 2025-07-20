@@ -123,6 +123,7 @@ def home():
 
     user_id = session['user_id']
     user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+    db.session.close()  # Close the session to avoid stale data
     if user:
         return render_template('joinEditor.html', languages=SUPPORTED_LANGUAGES, user=user)
     else:
@@ -338,6 +339,7 @@ def on_disconnect():
             
             # Delete if the user is guest at the end
             user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+            db.session.close()  # Close the session to avoid stale data
             username = user.username or 'Guest'
 
             # Remove from active connections
@@ -451,6 +453,7 @@ def on_leave_room(data):
 
             # Delete if the user is guest
             user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+            db.session.close()  # Close the session to avoid stale data
 
             if not user:
                 return f"User with ID {user_id} not found.", 404
@@ -579,6 +582,7 @@ def on_cursor_change(data):
         
         user_id = active_connections[request.sid]['user_id']
         user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
+        db.session.close()  # Close the session to avoid stale data
         username = user.username
         
         # Update cursor position in session
