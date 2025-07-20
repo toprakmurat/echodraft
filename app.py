@@ -12,6 +12,9 @@ import json
 import logging
 import os
 
+import time
+from threading import Timer
+
 load_dotenv()
 
 from database import configure_database, get_database_info, get_database_stats, run_maintenance
@@ -34,6 +37,8 @@ configure_database(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 active_connections = {}  # socket_id -> {'room_id': str, 'user_id': str}
+pending_document_updates = {}  # room_id -> {'content': str, 'timer': Timer, 'last_user': str}
+cursor_positions = {}  # room_id -> {user_id: {'line': int, 'ch': int, 'username': str}}
 
 # Supported languages with their file extensions and syntax highlighting modes
 SUPPORTED_LANGUAGES = {
@@ -337,10 +342,20 @@ def on_disconnect():
             room_id = active_connections[request.sid]['room_id']
             user_id = active_connections[request.sid]['user_id']
             
-            # Delete if the user is guest at the end
-            user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
-            db.session.close()  # Close the session to avoid stale data
+            # Clean up cursor position
+            if room_id in cursor_positions and user_id in cursor_positions[room_id]:
+                del cursor_positions[room_id][user_id]
+            
+            # Get user info before potential deletion
+            user = db.session.get(User, user_id)
+            if not user:
+                logger.warning(f"User with ID {user_id} not found.")
+                if request.sid in active_connections:
+                    del active_connections[request.sid]
+                return
+
             username = user.username or 'Guest'
+            is_guest = user.is_guest
 
             # Remove from active connections
             del active_connections[request.sid]
@@ -358,15 +373,18 @@ def on_disconnect():
             # Update room statistics
             update_room_stats(room_id)
 
-            if not user:
-                return f"User with ID {user_id} not found.", 404
-
-            if user.is_guest:
+            # Delete guest user if needed
+            if is_guest:
                 db.session.delete(user)
                 db.session.commit()
 
     except Exception as e:
         logger.error(f"Error handling disconnect: {str(e)}")
+    finally:
+        try:
+            db.session.close()
+        except Exception as close_error:
+            logger.error(f"Error closing database session: {close_error}")
 
 @socketio.on('join_room')
 def on_join_room(data):
@@ -375,14 +393,10 @@ def on_join_room(data):
         username = data.get('username', f'User_{request.sid[:8]}')
         language = data.get('language', 'javascript')
 
-        # Get or create room
+        # Get or create room and user
         room = get_or_create_room(room_id)
-        
-        # Get or create user
         user = get_or_create_user(username)
-
-        # Create user session
-        session = create_user_session(user.id, room_id, request.sid)
+        session_obj = create_user_session(user.id, room_id, request.sid)
         
         # Join socket room
         join_room(room_id)
@@ -393,26 +407,46 @@ def on_join_room(data):
             'user_id': user.id
         }
         
-        # Get or create document
-        document = get_or_create_document(
-            room_id,
-            initial_content='# Welcome to the collaborative editor!\n# Start typing to begin...',
-            language=language
-        )
+        # Get document content (from memory if available)
+        if room_id in pending_document_updates:
+            document_content = pending_document_updates[room_id]['content']
+            # Also get the document for other properties
+            document = get_or_create_document(room_id, language=language)
+            document_language = document.language
+            document_version = document.version
+        else:
+            document = get_or_create_document(
+                room_id,
+                initial_content='# Welcome to the collaborative editor!\n# Start typing to begin...',
+                language=language
+            )
+            document_content = document.content
+            document_language = document.language
+            document_version = document.version
         
-        # Get active users in room
+        # Get active users
         active_users = get_active_room_users(room_id)
         
-        # Send current document state to the new user
+        # Send current document state
         emit('document_state', {
-            'content': document.content,
-            'language': document.language,
-            'version': document.version,
+            'content': document_content,
+            'language': document_language,
+            'version': document_version,
             'room_info': room.to_dict(),
             'active_users': [user_data for user_data in active_users]
         })
         
-        # Notify other users about the new user
+        # Send current cursor positions
+        if room_id in cursor_positions:
+            for uid, cursor_data in cursor_positions[room_id].items():
+                if uid != user.id:  # Don't send user's own cursor back
+                    emit('cursor_change', {
+                        'user_id': uid,
+                        'username': cursor_data['username'],
+                        'cursor': {'line': cursor_data['line'], 'ch': cursor_data['ch']}
+                    })
+        
+        # Notify others
         emit('user_joined', {
             'user_id': user.id,
             'username': username,
@@ -425,6 +459,11 @@ def on_join_room(data):
     except Exception as e:
         logger.error(f"Error joining room: {str(e)}")
         emit('error', {'message': 'Failed to join room'})
+    finally:
+        try:
+            db.session.close()
+        except Exception as close_error:
+            logger.error(f"Error closing database session: {close_error}")
 
 @socketio.on('leave_room')
 def on_leave_room(data):
@@ -470,7 +509,7 @@ def on_leave_room(data):
 def on_text_operation(data):
     try:
         room_id = data['room_id']
-        operation = data['operation']  # Contains: type, from, to, text, removed
+        operation = data['operation']
         
         if request.sid not in active_connections:
             emit('error', {'message': 'Not connected to room'})
@@ -478,67 +517,86 @@ def on_text_operation(data):
         
         user_id = active_connections[request.sid]['user_id']
         
-        # Get document
-        document = get_or_create_document(room_id)
+        # Get current document content (from memory if available, otherwise database)
+        if room_id in pending_document_updates:
+            current_content = pending_document_updates[room_id]['content']
+        else:
+            document = get_or_create_document(room_id)
+            current_content = document.content
         
-        # Apply operation to document content
-        if operation['type'] == 'insert':
-            # Insert text at position
-            lines = document.content.splitlines(True)
-            if not lines:
-                lines = ['']
-            
-            line_idx = operation['from']['line']
-            ch_idx = operation['from']['ch']
-            
-            if line_idx < len(lines):
-                line = lines[line_idx]
-                lines[line_idx] = line[:ch_idx] + operation['text'] + line[ch_idx:]
-            
-            document.content = ''.join(lines)
-            
-        elif operation['type'] == 'delete':
-            # Remove text from position
-            lines = document.content.splitlines(True)
-            if not lines:
-                lines = ['']
-            
-            from_line = operation['from']['line']
-            from_ch = operation['from']['ch']
-            to_line = operation['to']['line']
-            to_ch = operation['to']['ch']
-            
-            if from_line == to_line:
-                # Single line deletion
-                if from_line < len(lines):
-                    line = lines[from_line]
-                    lines[from_line] = line[:from_ch] + line[to_ch:]
-            else:
-                # Multi-line deletion
-                if from_line < len(lines) and to_line < len(lines):
-                    lines[from_line] = lines[from_line][:from_ch] + lines[to_line][to_ch:]
-                    del lines[from_line + 1:to_line + 1]
-            
-            document.content = ''.join(lines)
+        # Apply operation to content efficiently
+        new_content = apply_text_operation(current_content, operation)
         
-        # Update document
-        document.updated_at = datetime.utcnow()
-        db.session.commit()
+        # Store in memory for batching
+        if room_id in pending_document_updates:
+            # Cancel existing timer
+            pending_document_updates[room_id]['timer'].cancel()
         
-        # Broadcast operation to all other users in the room
+        # Schedule batch save (debounced - only saves after 2 seconds of no changes)
+        timer = Timer(2.0, batch_save_document, args=[room_id])
+        timer.start()
+        
+        pending_document_updates[room_id] = {
+            'content': new_content,
+            'timer': timer,
+            'last_user': user_id
+        }
+        
+        # Broadcast operation immediately (no database delay)
         emit('text_operation', {
             'operation': operation,
-            'user_id': user_id,
-            'version': document.version
+            'user_id': user_id
         }, room=room_id, include_self=False)
         
     except Exception as e:
         logger.error(f"Error handling text operation: {str(e)}")
         emit('error', {'message': 'Failed to apply text operation'})
+    finally:
+        # Only close session if we actually used it
+        if room_id not in pending_document_updates or room_id not in locals():
+            try:
+                db.session.close()
+            except Exception as close_error:
+                logger.error(f"Error closing database session: {close_error}")
 
-# Keep the old text_change as fallback for bulk updates
+def apply_text_operation(content, operation):
+    """Efficiently apply text operations without converting to/from arrays repeatedly"""
+    if operation['type'] == 'insert':
+        from_pos = operation['from']
+        text_to_insert = operation['text']
+        
+        # Convert position to string index
+        lines = content.split('\n')
+        char_index = sum(len(lines[i]) + 1 for i in range(from_pos['line'])) + from_pos['ch']
+        if from_pos['line'] > 0:
+            char_index -= 1  # Adjust for newline counting
+        
+        # Insert text
+        return content[:char_index] + text_to_insert + content[char_index:]
+        
+    elif operation['type'] == 'delete':
+        from_pos = operation['from']
+        to_pos = operation['to']
+        
+        # Convert positions to string indices
+        lines = content.split('\n')
+        
+        from_index = sum(len(lines[i]) + 1 for i in range(from_pos['line'])) + from_pos['ch']
+        if from_pos['line'] > 0:
+            from_index -= 1
+            
+        to_index = sum(len(lines[i]) + 1 for i in range(to_pos['line'])) + to_pos['ch']
+        if to_pos['line'] > 0:
+            to_index -= 1
+        
+        # Delete text
+        return content[:from_index] + content[to_index:]
+    
+    return content
+
 @socketio.on('text_change')
 def on_text_change(data):
+    """Fallback for bulk updates - also optimized"""
     try:
         room_id = data['room_id']
         content = data['content']
@@ -549,30 +607,35 @@ def on_text_change(data):
         
         user_id = active_connections[request.sid]['user_id']
         
-        # Get document
-        document = get_or_create_document(room_id)
+        # Cancel any pending batch save and replace with this content
+        if room_id in pending_document_updates:
+            pending_document_updates[room_id]['timer'].cancel()
         
-        # Create revision before updating
-        document.create_revision(user_id, 'edit')
+        # Schedule immediate save for bulk changes (but still batched)
+        timer = Timer(0.5, batch_save_document, args=[room_id])
+        timer.start()
         
-        # Update document content
-        document.content = content
-        document.updated_at = datetime.utcnow()
-        db.session.commit()
+        pending_document_updates[room_id] = {
+            'content': content,
+            'timer': timer,
+            'last_user': user_id,
+            'create_revision': True  # Create revision for bulk changes
+        }
         
-        # Broadcast change to all other users in the room
+        # Broadcast change immediately
         emit('text_change', {
             'content': content,
-            'user_id': user_id,
-            'version': document.version
+            'user_id': user_id
         }, room=room_id, include_self=False)
         
     except Exception as e:
         logger.error(f"Error handling text change: {str(e)}")
         emit('error', {'message': 'Failed to save changes'})
+    # No database session to close since we're not using it directly
 
 @socketio.on('cursor_change')
 def on_cursor_change(data):
+    """Optimized cursor handling - no database writes"""
     try:
         room_id = data['room_id']
         cursor_data = data['cursor']
@@ -581,27 +644,47 @@ def on_cursor_change(data):
             return
         
         user_id = active_connections[request.sid]['user_id']
-        user = db.session.get(User, user_id) # Legacy use: User.query.get(user_id)
-        db.session.close()  # Close the session to avoid stale data
-        username = user.username
         
-        # Update cursor position in session
-        session = UserSession.query.filter_by(
-            socket_id=request.sid,
-            is_active=True
-        ).first()
+        # Get username from active connections or database (cached)
+        if room_id not in cursor_positions:
+            cursor_positions[room_id] = {}
         
-        if session:
-            session.set_cursor_position(cursor_data.get('line', 0), cursor_data.get('ch', 0))
-            db.session.commit()
-            
-            # Broadcast cursor position to all other users in the room
-            emit('cursor_change', {
-                'user_id': user_id,
-                'username': username,
-                'cursor': cursor_data
-            }, room=room_id, include_self=False)
-            
+        # Get username efficiently
+        username = None
+        for sid, conn_data in active_connections.items():
+            if conn_data['user_id'] == user_id:
+                # Try to get from session first
+                username = session.get('username')
+                break
+        
+        if not username:
+            # Fallback to database only if needed
+            user = db.session.get(User, user_id)
+            username = user.username if user else f"User-{user_id}"
+            db.session.close()
+        
+        # Store cursor position in memory only
+        cursor_positions[room_id][user_id] = {
+            'line': cursor_data.get('line', 0),
+            'ch': cursor_data.get('ch', 0),
+            'username': username,
+            'last_update': time.time()
+        }
+        
+        # Clean up old cursor positions (users who left)
+        current_time = time.time()
+        cursor_positions[room_id] = {
+            uid: pos for uid, pos in cursor_positions[room_id].items()
+            if current_time - pos['last_update'] < 300  # Remove after 5 minutes
+        }
+        
+        # Broadcast cursor position immediately
+        emit('cursor_change', {
+            'user_id': user_id,
+            'username': username,
+            'cursor': cursor_data
+        }, room=room_id, include_self=False)
+        
     except Exception as e:
         logger.error(f"Error handling cursor change: {str(e)}")
 
@@ -729,6 +812,48 @@ def on_restore_revision(data):
     except Exception as e:
         logger.error(f"Error restoring revision: {str(e)}")
         emit('error', {'message': 'Failed to restore revision'})
+
+def batch_save_document(room_id):
+    """Save document changes in batch after a delay"""
+    with app.app_context():
+        try:
+            if room_id in pending_document_updates:
+                update_data = pending_document_updates[room_id]
+                
+                # Get document and update it
+                document = get_or_create_document(room_id)
+                document.content = update_data['content']
+                document.updated_at = datetime.utcnow()
+                
+                # Only create revision occasionally (not on every save)
+                if hasattr(update_data, 'create_revision') and update_data['create_revision']:
+                    document.create_revision(update_data['last_user'], 'edit')
+                
+                db.session.commit()
+                
+                # Clean up
+                del pending_document_updates[room_id]
+                
+        except Exception as e:
+            logger.error(f"Error in batch save for room {room_id}: {str(e)}")
+        finally:
+            try:
+                db.session.close()
+            except Exception as close_error:
+                logger.error(f"Error closing database session: {close_error}")
+
+# Add cleanup function for when app shuts down
+def cleanup_pending_operations():
+    """Clean up any pending operations before shutdown"""
+    for room_id in list(pending_document_updates.keys()):
+        try:
+            pending_document_updates[room_id]['timer'].cancel()
+            batch_save_document(room_id)
+        except Exception as e:
+            logger.error(f"Error during cleanup for room {room_id}: {e}")
+
+import atexit
+atexit.register(cleanup_pending_operations)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 3000))
