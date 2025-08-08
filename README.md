@@ -2,7 +2,7 @@
 
 A **collaborative live code editor** with support for multiple programming and domain-specific languages. Enables real-time collaboration between users.
 
-🔗 **Live demo:** [echodraft](https://echodraft-0hlu.onrender.com)
+🔗 **Live demo:** [echodraft](https://echodraft-0hlu.onrender.com) (Domain is expired, plan to update)
 
 ---
 
